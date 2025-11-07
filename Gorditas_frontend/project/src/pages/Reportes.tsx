@@ -529,6 +529,76 @@ const Reportes: React.FC = () => {
     return fechaUTCStr; // Ya viene en formato YYYY-MM-DD
   };
 
+  // Función para agrupar órdenes por mesa en intervalos de 15 minutos
+  const agruparOrdenesPorMesa = (ordenesDelDia: any[]) => {
+    if (ordenesDelDia.length === 0) return [];
+    
+    // Agrupar por mesa/pedido
+    const ordenesPorMesa: { [key: string]: any[] } = {};
+    
+    ordenesDelDia.forEach(orden => {
+      const mesaKey = orden.nombreMesa || orden.nombreTipoOrden || 'Sin Mesa';
+      if (!ordenesPorMesa[mesaKey]) {
+        ordenesPorMesa[mesaKey] = [];
+      }
+      ordenesPorMesa[mesaKey].push(orden);
+    });
+    
+    // Agrupar órdenes de cada mesa por intervalos de 15 minutos
+    const gruposFinales: any[] = [];
+    
+    Object.keys(ordenesPorMesa).forEach(mesaKey => {
+      const ordenesMesa = ordenesPorMesa[mesaKey].sort((a, b) => 
+        new Date(a.fechaHora).getTime() - new Date(b.fechaHora).getTime()
+      );
+      
+      let grupoActual: any[] = [];
+      let tiempoReferencia: number | null = null;
+      
+      ordenesMesa.forEach(orden => {
+        const tiempoOrden = new Date(orden.fechaHora).getTime();
+        
+        // Si es la primera orden del grupo o está dentro de 15 minutos
+        if (tiempoReferencia === null || (tiempoOrden - tiempoReferencia) <= 15 * 60 * 1000) {
+          grupoActual.push(orden);
+          // Actualizar tiempo de referencia a la orden más reciente
+          tiempoReferencia = tiempoOrden;
+        } else {
+          // Guardar el grupo actual y empezar uno nuevo
+          if (grupoActual.length > 0) {
+            gruposFinales.push({
+              mesa: mesaKey,
+              ordenes: grupoActual,
+              total: grupoActual.reduce((sum, o) => sum + o.total, 0),
+              primeraOrden: grupoActual[0],
+              ultimaOrden: grupoActual[grupoActual.length - 1],
+              esGrupo: grupoActual.length > 1
+            });
+          }
+          grupoActual = [orden];
+          tiempoReferencia = tiempoOrden;
+        }
+      });
+      
+      // Guardar el último grupo
+      if (grupoActual.length > 0) {
+        gruposFinales.push({
+          mesa: mesaKey,
+          ordenes: grupoActual,
+          total: grupoActual.reduce((sum, o) => sum + o.total, 0),
+          primeraOrden: grupoActual[0],
+          ultimaOrden: grupoActual[grupoActual.length - 1],
+          esGrupo: grupoActual.length > 1
+        });
+      }
+    });
+    
+    // Ordenar por hora de la última orden de cada grupo
+    return gruposFinales.sort((a, b) => 
+      new Date(a.ultimaOrden.fechaHora).getTime() - new Date(b.ultimaOrden.fechaHora).getTime()
+    );
+  };
+
   const mostrarOrdenesDeDia = (fecha: string) => {
     
     // Si no hay órdenes, mostrar array vacío
@@ -883,37 +953,39 @@ const Reportes: React.FC = () => {
                         <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
                           <thead>
                             <tr>
-                              <th className="text-left px-2 py-2 w-1/6 font-medium text-gray-900">Folio</th>
-                              <th className="text-center px-2 py-2 w-1/6 font-medium text-gray-900">Cliente</th>
-                              <th className="text-left px-2 py-2 w-1/6 font-medium text-gray-900">Mesa/Pedido</th>
-                              <th className="text-right px-2 py-2 w-1/6 font-medium text-gray-900">Total</th>
-                              <th className="text-center px-2 py-2 w-1/6 font-medium text-gray-900">Hora</th>
-                              <th className="text-center px-2 py-2 w-1/6 font-medium text-gray-900">Detalles</th>
+                              <th className="text-left px-2 py-2 font-medium text-gray-900">Folio(s)</th>
+                              <th className="text-center px-2 py-2 font-medium text-gray-900">Cliente</th>
+                              <th className="text-left px-2 py-2 font-medium text-gray-900">Mesa/Pedido</th>
+                              <th className="text-left px-2 py-2 font-medium text-gray-900">Resumen</th>
+                              <th className="text-right px-2 py-2 font-medium text-gray-900">Total</th>
+                              <th className="text-center px-2 py-2 font-medium text-gray-900">Hora</th>
+                              <th className="text-center px-2 py-2 font-medium text-gray-900">Detalles</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {ordenesDia.map(orden => {
-                              const productosOrden = productos.filter(p => p.idOrden === orden._id);
-                              const platillosOrden = platillos.filter(pl => {
-                                // Verificar si el platillo pertenece a esta orden
-                                // Comparar los primeros 7 caracteres para mayor flexibilidad
-                                if (!pl.idSuborden || !orden._id) return false;
-                                
-                                // Primero intentar coincidencia exacta del idOrden si existe
-                                if (pl.idOrden === orden._id) return true;
-                                
-                                // Si no, verificar por prefijo de suborden (timestamp similar)
-                                const ordenPrefix = orden._id.slice(0, 7);
-                                const subOrdenPrefix = pl.idSuborden.slice(0, 7);
-                                return ordenPrefix === subOrdenPrefix;
+                            {agruparOrdenesPorMesa(ordenesDia).map((grupo, idx) => {
+                              const orden = grupo.primeraOrden;
+                              
+                              // Obtener productos y platillos de TODAS las órdenes del grupo
+                              const productosGrupo = productos.filter(p => 
+                                grupo.ordenes.some((o: any) => o._id === p.idOrden)
+                              );
+                              
+                              const platillosGrupo = platillos.filter(pl => {
+                                return grupo.ordenes.some((o: any) => {
+                                  if (!pl.idSuborden || !o._id) return false;
+                                  if (pl.idOrden === o._id) return true;
+                                  const ordenPrefix = o._id.slice(0, 7);
+                                  const subOrdenPrefix = pl.idSuborden.slice(0, 7);
+                                  return ordenPrefix === subOrdenPrefix;
+                                });
                               });
 
                               // Crear un mapa de platillos con sus extras
-                              const platillosConExtras = platillosOrden.map(platillo => {
+                              const platillosConExtras = platillosGrupo.map(platillo => {
                                 const extrasDelPlatillo = extras.filter(extra => 
                                   extra.idOrdenDetallePlatillo === platillo._id
                                 );
-                                
                                 
                                 return {
                                   ...platillo,
@@ -921,31 +993,181 @@ const Reportes: React.FC = () => {
                                 };
                               });
                               
+                              // ID único para el grupo
+                              const grupoId = `grupo-${idx}`;
+                              
+                              // Calcular totales para el resumen
+                              const totalProductos = productosGrupo.reduce((sum: number, p: any) => sum + p.cantidad, 0);
+                              const totalPlatillos = platillosGrupo.reduce((sum: number, p: any) => sum + p.cantidad, 0);
+                              
+                              // Agrupar por cliente para mostrar resumen individual
+                              const resumenPorCliente: {[cliente: string]: {platillos: number, productos: number, total: number}} = {};
+                              
+                              if (grupo.esGrupo) {
+                                grupo.ordenes.forEach((o: any) => {
+                                  const nombreCliente = o.nombreCliente || 'Sin nombre';
+                                  
+                                  if (!resumenPorCliente[nombreCliente]) {
+                                    resumenPorCliente[nombreCliente] = {platillos: 0, productos: 0, total: 0};
+                                  }
+                                  
+                                  // Contar productos de esta orden
+                                  const productosOrden = productosGrupo.filter((p: any) => p.idOrden === o._id);
+                                  resumenPorCliente[nombreCliente].productos += productosOrden.reduce((sum: number, p: any) => sum + p.cantidad, 0);
+                                  
+                                  // Contar platillos de esta orden
+                                  const platillosOrden = platillosGrupo.filter((pl: any) => {
+                                    if (!pl.idSuborden || !o._id) return false;
+                                    if (pl.idOrden === o._id) return true;
+                                    const ordenPrefix = o._id.slice(0, 7);
+                                    const subOrdenPrefix = pl.idSuborden.slice(0, 7);
+                                    return ordenPrefix === subOrdenPrefix;
+                                  });
+                                  resumenPorCliente[nombreCliente].platillos += platillosOrden.reduce((sum: number, p: any) => sum + p.cantidad, 0);
+                                  
+                                  // Sumar total
+                                  resumenPorCliente[nombreCliente].total += o.total;
+                                });
+                              }
+                              
                               return (
-                                <React.Fragment key={orden._id}>
-                                  <tr>
-                                    <td className="text-left px-2 py-2 w-1/6">{orden.folio}</td>
-                                    <td className="text-center px-2 py-2 w-1/6">{orden.nombreCliente || 'Sin nombre'}</td>
-                                    <td className="text-left px-2 py-2 w-1/6">
-                                      {orden.nombreMesa || orden.nombreTipoOrden}
+                                <React.Fragment key={grupoId}>
+                                  <tr className={grupo.esGrupo ? 'bg-blue-50' : ''}>
+                                    <td className="text-left px-2 py-2">
+                                      {grupo.esGrupo ? (
+                                        <div className="flex flex-col">
+                                          <span className="font-semibold text-blue-700">
+                                            {grupo.ordenes.length} órdenes
+                                          </span>
+                                          <span className="text-xs text-gray-600">
+                                            {grupo.ordenes.map((o: any) => o.folio).join(', ')}
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        orden.folio
+                                      )}
                                     </td>
-                                    <td className="text-right px-2 py-2 w-1/6">${orden.total.toFixed(2)}</td>
-                                    <td className="text-center px-2 py-2 w-1/6">{new Date(orden.fechaHora).toLocaleTimeString()}</td>
-                                    <td className="text-center px-2 py-2 w-1/6">
+                                    <td className="text-center px-2 py-2">
+                                      {grupo.esGrupo ? (
+                                        <div className="flex flex-col text-xs">
+                                          {Object.keys(resumenPorCliente).map((cliente, idx) => (
+                                            <span key={idx} className="text-gray-700 font-medium">
+                                              {cliente}
+                                            </span>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        orden.nombreCliente || 'Sin nombre'
+                                      )}
+                                    </td>
+                                    <td className="text-left px-2 py-2">
+                                      <div className="flex items-center">
+                                        {grupo.esGrupo && (
+                                          <span className="mr-2 text-blue-600" title="Órdenes agrupadas">
+                                            📊
+                                          </span>
+                                        )}
+                                        {grupo.mesa}
+                                      </div>
+                                    </td>
+                                    <td className="text-left px-2 py-2">
+                                      {grupo.esGrupo ? (
+                                        <div className="flex flex-col text-xs space-y-1">
+                                          {Object.entries(resumenPorCliente).map(([, datos], idx) => (
+                                            <div key={idx} className="border-b border-gray-300 pb-1 last:border-b-0">
+                                              {datos.platillos > 0 && (
+                                                <div className="text-gray-700">
+                                                  🍽️ {datos.platillos} platillo{datos.platillos !== 1 ? 's' : ''}
+                                                </div>
+                                              )}
+                                              {datos.productos > 0 && (
+                                                <div className="text-gray-700">
+                                                  🥤 {datos.productos} producto{datos.productos !== 1 ? 's' : ''}
+                                                </div>
+                                              )}
+                                            </div>
+                                          ))}
+                                          <div className="font-semibold text-blue-700 pt-1 border-t-2 border-blue-300">
+                                            Total: {totalPlatillos > 0 && `🍽️${totalPlatillos}`} {totalProductos > 0 && `🥤${totalProductos}`}
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div className="flex flex-col text-xs">
+                                          {totalPlatillos > 0 && (
+                                            <span className="text-gray-700">
+                                              🍽️ {totalPlatillos} platillo{totalPlatillos !== 1 ? 's' : ''}
+                                            </span>
+                                          )}
+                                          {totalProductos > 0 && (
+                                            <span className="text-gray-700">
+                                              🥤 {totalProductos} producto{totalProductos !== 1 ? 's' : ''}
+                                            </span>
+                                          )}
+                                          {totalPlatillos === 0 && totalProductos === 0 && (
+                                            <span className="text-gray-500">Sin items</span>
+                                          )}
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="text-right px-2 py-2">
+                                      {grupo.esGrupo ? (
+                                        <div className="flex flex-col text-xs space-y-1">
+                                          {Object.entries(resumenPorCliente).map(([, datos], idx) => (
+                                            <div key={idx} className="text-gray-700 border-b border-gray-300 pb-1 last:border-b-0">
+                                              ${datos.total.toFixed(2)}
+                                            </div>
+                                          ))}
+                                          <div className="font-bold text-blue-700 pt-1 border-t-2 border-blue-300">
+                                            ${grupo.total.toFixed(2)}
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <span>${grupo.total.toFixed(2)}</span>
+                                      )}
+                                    </td>
+                                    <td className="text-center px-2 py-2">
+                                      {grupo.esGrupo ? (
+                                        <div className="flex flex-col text-xs">
+                                          <span>{new Date(grupo.primeraOrden.fechaHora).toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'})}</span>
+                                          <span className="text-gray-500">-</span>
+                                          <span>{new Date(grupo.ultimaOrden.fechaHora).toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'})}</span>
+                                        </div>
+                                      ) : (
+                                        new Date(orden.fechaHora).toLocaleTimeString()
+                                      )}
+                                    </td>
+                                    <td className="text-center px-2 py-2">
                                       <button
                                         className="bg-orange-500 text-white px-2 py-1 rounded text-xs"
-                                        onClick={() => setOrdenExpandida(orden._id === ordenExpandida ? null : orden._id)}
+                                        onClick={() => setOrdenExpandida(grupoId === ordenExpandida ? null : grupoId)}
                                       >
-                                        {orden._id === ordenExpandida ? 'Ocultar' : 'Ver Detalles'}
+                                        {grupoId === ordenExpandida ? 'Ocultar' : 'Ver Detalles'}
                                       </button>
                                     </td>
                                   </tr>
-                                  {orden._id === ordenExpandida && (
+                                  {grupoId === ordenExpandida && (
                                     <tr>
                                       <td colSpan={6} className="p-0">
                                         <div className="bg-gray-50 p-2 sm:p-4 rounded-lg overflow-x-auto">
+                                          {grupo.esGrupo && (
+                                            <div className="mb-4 p-2 bg-blue-100 rounded border border-blue-300">
+                                              <h4 className="font-semibold text-sm text-blue-800 mb-2">
+                                                Órdenes Agrupadas ({grupo.ordenes.length})
+                                              </h4>
+                                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                                                {grupo.ordenes.map((o: any) => (
+                                                  <div key={o._id} className="bg-white p-2 rounded border border-blue-200">
+                                                    <div><strong>Folio:</strong> {o.folio}</div>
+                                                    <div><strong>Cliente:</strong> {o.nombreCliente || 'Sin nombre'}</div>
+                                                    <div><strong>Total:</strong> ${o.total.toFixed(2)}</div>
+                                                    <div><strong>Hora:</strong> {new Date(o.fechaHora).toLocaleTimeString('es-MX', {hour: '2-digit', minute: '2-digit'})}</div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          )}
                                           <h4 className="font-semibold mb-2 text-xs sm:text-sm">Productos</h4>
-                                          {productosOrden.length > 0 ? (
+                                          {productosGrupo.length > 0 ? (
                                             <div className="overflow-x-auto">
                                               <table className="min-w-full mb-2 text-xs sm:text-sm">
                                                 <thead>
@@ -956,21 +1178,21 @@ const Reportes: React.FC = () => {
                                                   </tr>
                                                 </thead>
                                                 <tbody>
-                                                  {productosOrden.map(prod => (
+                                                  {productosGrupo.map((prod: any) => (
                                                     <tr key={prod._id}>
                                                       <td className="text-left px-2 py-2 w-1/2">{prod.nombreProducto}</td>
                                                       <td className="text-center px-2 py-2 w-1/4">{prod.cantidad}</td>
                                                       <td className="text-right px-2 py-2 w-1/4">${prod.importe.toFixed(2)}</td>
                                                     </tr>
                                                   ))}
-                                                  {productosOrden.length > 0 && (
+                                                  {productosGrupo.length > 0 && (
                                                     <tr className="border-t border-gray-300 font-semibold bg-gray-50">
                                                       <td className="text-left px-2 py-2 w-1/2">Total Productos</td>
                                                       <td className="text-center px-2 py-2 w-1/4">
-                                                        {productosOrden.reduce((sum, prod) => sum + prod.cantidad, 0)}
+                                                        {productosGrupo.reduce((sum: number, prod: any) => sum + prod.cantidad, 0)}
                                                       </td>
                                                       <td className="text-right px-2 py-2 w-1/4">
-                                                        ${productosOrden.reduce((sum, prod) => sum + prod.importe, 0).toFixed(2)}
+                                                        ${productosGrupo.reduce((sum: number, prod: any) => sum + prod.importe, 0).toFixed(2)}
                                                       </td>
                                                     </tr>
                                                   )}
@@ -1084,11 +1306,11 @@ const Reportes: React.FC = () => {
                                               const pertenece = platillosConExtras.some(pl => 
                                                 pl.extras?.some((e: any) => e._id === extra._id)
                                               );
-                                              return !pertenece && (
-                                                extra.idOrden === orden._id ||
-                                                (orden._id && extra.idOrdenDetallePlatillo && 
-                                                 extra.idOrdenDetallePlatillo.slice(0, 7) === orden._id.slice(0, 7))
-                                              );
+                                              return !pertenece && grupo.ordenes.some((o: any) => (
+                                                extra.idOrden === o._id ||
+                                                (o._id && extra.idOrdenDetallePlatillo && 
+                                                 extra.idOrdenDetallePlatillo.slice(0, 7) === o._id.slice(0, 7))
+                                              ));
                                             });
                                             
                                             if (extrasIndependientes.length > 0) {
