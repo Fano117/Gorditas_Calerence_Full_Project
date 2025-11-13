@@ -1132,7 +1132,7 @@ const NuevaOrden: React.FC = () => {
             {(platillosSeleccionados.length > 0 || productosSeleccionados.length > 0) && (
               <div>
                 <h3 className="text-xs sm:text-base lg:text-lg font-medium text-gray-900 mb-2 sm:mb-4">
-                  Platillos Seleccionados ({platillosSeleccionados.length})
+                  Platillos Seleccionados ({platillosSeleccionados.reduce((total, p) => total + p.cantidad, 0)})
                 </h3>
                 <div className="space-y-1.5 sm:space-y-3 max-h-80 sm:max-h-96 overflow-y-auto">
                   {platillosSeleccionados.map((item, index) => (
@@ -1488,7 +1488,7 @@ const NuevaOrden: React.FC = () => {
                         </div>
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 pt-2 border-t border-blue-200">
                           <span className="text-xs sm:text-sm font-medium text-blue-800">
-                            Número de gorditas totales:
+                            Número de platillos totales:
                           </span>
                           <span className="text-sm sm:text-base font-bold text-blue-700">
                             {(() => {

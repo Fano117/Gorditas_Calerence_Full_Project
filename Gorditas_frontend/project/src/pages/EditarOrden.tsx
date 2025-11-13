@@ -299,6 +299,17 @@ const EditarOrden: React.FC = () => {
       const mesa = mesasAgrupadas.find(m => m.idMesa === idMesa);
       if (mesa) {
         await loadOrdenesDetallesMesa(mesa);
+        
+        // Auto-expandir resúmenes en móvil/tablet (no en desktop)
+        if (window.innerWidth < 1280) { // xl breakpoint
+          setResumenesExpandidos(prev => {
+            const newSet = new Set(prev);
+            mesa.ordenes.forEach(orden => {
+              if (orden._id) newSet.add(orden._id);
+            });
+            return newSet;
+          });
+        }
       }
     }
     setExpandedMesas(newExpanded);
@@ -1047,67 +1058,81 @@ const EditarOrden: React.FC = () => {
                               {ordenesCliente.map((orden) => (
                                 <div
                                   key={orden._id}
-                                  className={`bg-white rounded-lg border p-3 sm:p-4 transition-colors relative ${
+                                  className={`bg-white rounded-lg border p-2 sm:p-3 transition-colors relative ${
                                     selectedOrden?._id === orden._id
                                       ? 'border-orange-500 bg-orange-50'
                                       : 'border-gray-200 hover:border-orange-300 hover:bg-orange-50'
                                   }`}
                                 >
-                                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                                  {/* Diseño de dos columnas compacto */}
+                                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                                    {/* Columna izquierda - Información principal */}
                                     <div 
                                       onClick={() => loadOrdenDetails(orden)}
-                                      className="flex-1 cursor-pointer min-w-0"
+                                      className="cursor-pointer min-w-0"
                                     >
-                                      <h5 className="font-medium text-gray-900 text-xs sm:text-base break-words">
+                                      <h5 className="font-medium text-gray-900 text-[11px] sm:text-sm break-words">
                                         Orden #{orden._id?.toString().slice(-6)}
                                       </h5>
-                                      {orden.notas && (
-                                        <div className="flex items-start space-x-1 mt-1">
-                                          <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
-                                          <p className="text-[10px] sm:text-xs text-gray-700 italic line-clamp-2 break-words">
-                                            {orden.notas}
-                                          </p>
-                                        </div>
-                                      )}
-                                      <p className="text-[10px] sm:text-sm text-gray-600 mt-1">
+                                      <p className="text-[9px] sm:text-xs text-gray-600 mt-0.5">
                                         {new Date(orden.fechaHora ?? orden.fecha ?? '').toLocaleTimeString('es-ES', {
                                           hour: '2-digit',
                                           minute: '2-digit'
                                         })}
                                       </p>
-                                      <p className="text-xs sm:text-sm font-medium text-green-600 mt-1">
+                                      <p className="text-[10px] sm:text-xs font-medium text-green-600 mt-0.5">
                                         Total: ${orden.total.toFixed(2)}
                                       </p>
                                     </div>
-                                    <div className="flex flex-row sm:flex-col items-center sm:items-end space-x-2 sm:space-x-0 sm:space-y-2 flex-shrink-0">
-                                      <span className="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-medium rounded-full bg-blue-100 text-blue-800 whitespace-nowrap">
-                                        {orden.estatus}
-                                      </span>
-                                      {orden.estatus === 'Pendiente' && (
-                                        <button
-                                          onClick={() => handleUpdateStatus(orden._id!, 'Recepcion')}
-                                          disabled={updatingStatus === orden._id}
-                                          className="p-1 sm:px-3 sm:py-1 text-xs bg-green-600 text-white rounded-full hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center justify-center whitespace-nowrap"
-                                          title="Confirmar orden"
-                                        >
-                                          {updatingStatus === orden._id ? (
-                                            <>
-                                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white sm:mr-1 flex-shrink-0"></div>
-                                              <span className="hidden sm:inline">Actualizando...</span>
-                                            </>
-                                          ) : (
-                                            <>
-                                              <Check className="w-4 h-4 sm:w-3 sm:h-3 sm:mr-1" />
-                                              <span className="hidden sm:inline">Confirmar orden</span>
-                                            </>
-                                          )}
-                                        </button>
-                                      )}
+                                    
+                                    {/* Columna derecha - Estatus y acciones */}
+                                    <div className="flex flex-col items-end justify-between gap-1">
+                                      <div className="flex flex-col items-end gap-1 w-full">
+                                        <span className="px-1.5 py-0.5 sm:px-2 sm:py-1 text-[9px] sm:text-xs font-medium rounded-full bg-blue-100 text-blue-800 whitespace-nowrap">
+                                          {orden.estatus}
+                                        </span>
+                                        {orden.estatus === 'Pendiente' && (
+                                          <button
+                                            onClick={() => handleUpdateStatus(orden._id!, 'Recepcion')}
+                                            disabled={updatingStatus === orden._id}
+                                            className="flex items-center justify-center gap-0.5 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[9px] sm:text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 transition-colors"
+                                            title="Confirmar orden"
+                                          >
+                                            {updatingStatus === orden._id ? (
+                                              <div className="animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-white"></div>
+                                            ) : (
+                                              <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                            )}
+                                          </button>
+                                        )}
+                                      </div>
+                                      
+                                      {/* Botón eliminar orden en columna derecha */}
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteOrder(orden);
+                                        }}
+                                        className="p-0.5 sm:p-1 text-red-600 hover:bg-red-100 rounded transition-colors"
+                                        title="Eliminar orden"
+                                      >
+                                        <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                                      </button>
                                     </div>
                                   </div>
                                   
-                                  {/* Botones de acción rápida */}
-                                  <div className="flex items-center justify-end gap-1 mt-2 pt-2 border-t border-gray-200">
+                                  {/* Notas de la orden - Debajo del grid, si existen */}
+                                  {orden.notas && (
+                                    <div className="flex items-start space-x-1 mt-1.5 pt-1.5 border-t border-gray-200">
+                                      <StickyNote className="w-3 h-3 text-yellow-600 mt-0.5 flex-shrink-0" />
+                                      <p className="text-[9px] sm:text-xs text-gray-700 italic line-clamp-2 break-words">
+                                        {orden.notas}
+                                      </p>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Botones de acción rápida - más compactos */}
+                                  <div className="flex items-center justify-end gap-1 mt-1.5 pt-1.5 border-t border-gray-200">
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -1115,10 +1140,10 @@ const EditarOrden: React.FC = () => {
                                         loadOrdenDetails(orden, false); // No hacer scroll
                                         iniciarSeleccionPlatillo();
                                       }}
-                                      className="flex items-center gap-1 px-2 py-1 text-[10px] sm:text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
+                                      className="flex items-center gap-0.5 sm:gap-1 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[9px] sm:text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
                                       title="Agregar platillo"
                                     >
-                                      <Plus className="w-3 h-3" />
+                                      <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                                       <span>Platillo</span>
                                     </button>
                                     <button
@@ -1128,17 +1153,17 @@ const EditarOrden: React.FC = () => {
                                         loadOrdenDetails(orden, false); // No hacer scroll
                                         setModalProductoOpen(true);
                                       }}
-                                      className="flex items-center gap-1 px-2 py-1 text-[10px] sm:text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                      className="flex items-center gap-0.5 sm:gap-1 px-1.5 py-0.5 sm:px-2 sm:py-1 text-[9px] sm:text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
                                       title="Agregar producto"
                                     >
-                                      <Plus className="w-3 h-3" />
+                                      <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                                       <span>Producto</span>
                                     </button>
                                   </div>
 
-                                  {/* Resumen de platillos y productos - Solo visible en móvil */}
+                                  {/* Resumen de platillos y productos - Visible en móvil y tablet, oculto en desktop (xl) */}
                                   {ordenesDetalles[orden._id!] && (
-                                    <div className="block sm:hidden mt-2 pt-2 border-t border-gray-200">
+                                    <div className="block xl:hidden mt-2 pt-2 border-t border-gray-200">
                                       {/* Header del resumen - Clickeable para expandir/colapsar */}
                                       <div 
                                         className="flex items-center justify-between cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5 -mx-1"
@@ -1150,7 +1175,7 @@ const EditarOrden: React.FC = () => {
                                         <div className="flex items-center gap-1.5">
                                           <h6 className="text-[10px] font-semibold text-gray-700">Resumen</h6>
                                           <span className="text-[9px] text-gray-500">
-                                            ({ordenesDetalles[orden._id!].platillos.length} platillos)
+                                            ({ordenesDetalles[orden._id!].platillos.reduce((total: number, p: any) => total + (p.cantidad || 1), 0)} platillos)
                                           </span>
                                         </div>
                                         {resumenesExpandidos.has(orden._id!) ? (

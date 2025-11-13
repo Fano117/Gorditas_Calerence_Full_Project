@@ -1032,7 +1032,7 @@ const Reportes: React.FC = () => {
                               
                               return (
                                 <React.Fragment key={grupoId}>
-                                  <tr className={grupo.esGrupo ? 'bg-blue-50' : ''}>
+                                  <tr className={`${grupo.esGrupo ? 'bg-blue-50' : ''} border-b-4 border-gray-300`}>
                                     <td className="text-left px-2 py-2">
                                       {grupo.esGrupo ? (
                                         <div className="flex flex-col">
@@ -1146,7 +1146,7 @@ const Reportes: React.FC = () => {
                                     </td>
                                   </tr>
                                   {grupoId === ordenExpandida && (
-                                    <tr>
+                                    <tr className="border-b-4 border-gray-300">
                                       <td colSpan={6} className="p-0">
                                         <div className="bg-gray-50 p-2 sm:p-4 rounded-lg overflow-x-auto">
                                           {grupo.esGrupo && (
