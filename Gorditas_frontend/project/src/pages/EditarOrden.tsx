@@ -1195,13 +1195,18 @@ const EditarOrden: React.FC = () => {
                                               <div className="space-y-1">
                                                 {ordenesDetalles[orden._id!].platillos.map((platillo: any, idx: number) => (
                                               <div key={idx} className="flex items-center justify-between text-[10px] bg-orange-50 rounded px-1.5 py-1">
-                                                <span className="text-gray-700 truncate flex-1">
-                                                  {platillo.cantidad}x {platillo.nombrePlatillo}
-                                                  {platillo.extras && platillo.extras.length > 0 && (
-                                                    <span className="text-purple-600 text-[9px]">
-                                                      {' '}+{platillo.extras.length} extra{platillo.extras.length > 1 ? 's' : ''}
-                                                    </span>
-                                                  )}
+                                                <span className="text-gray-700 flex-1 truncate">
+                                                  <span className="flex flex-wrap items-center gap-1">
+                                                    <span>{platillo.cantidad}x {platillo.nombrePlatillo}</span>
+                                                    {platillo.nombreGuiso && (
+                                                      <span className="text-gray-500 italic">| Guiso: {platillo.nombreGuiso}</span>
+                                                    )}
+                                                    {platillo.extras && platillo.extras.length > 0 && (
+                                                      <span className="text-purple-600 text-[9px]">
+                                                        +{platillo.extras.length} extra{platillo.extras.length > 1 ? 's' : ''}
+                                                      </span>
+                                                    )}
+                                                  </span>
                                                 </span>
                                                 <button
                                                   onClick={async (e) => {

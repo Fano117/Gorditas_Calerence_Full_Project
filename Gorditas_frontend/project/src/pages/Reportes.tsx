@@ -513,20 +513,21 @@ const Reportes: React.FC = () => {
   // $dateToString: { format: '%Y-%m-%d', date: '$fechaHora' } (sin timezone = UTC)
   const obtenerFechaDelDia = (fecha: string | Date): string => {
     const fechaObj = new Date(fecha);
-    
     // Verificar que la fecha sea válida
     if (isNaN(fechaObj.getTime())) {
       console.warn(`Fecha inválida recibida: ${fecha}`);
       return '';
     }
-    
-    // Obtener la fecha en UTC (sin conversión de timezone)
-    // Esto debe coincidir exactamente con el backend que usa UTC
-    const fechaUTCStr = fechaObj.toISOString().split('T')[0]; // YYYY-MM-DD
-    
-    console.log(`Conversión de fecha UTC: ${fecha} -> ${fechaUTCStr} (UTC, igual que backend)`);
-    
-    return fechaUTCStr; // Ya viene en formato YYYY-MM-DD
+    // Obtener la fecha en la zona horaria de Zacatecas (America/Mexico_City)
+    // Esto agrupa los pedidos por día local, no UTC
+    const fechaLocalStr = fechaObj.toLocaleString('en-CA', {
+      timeZone: 'America/Mexico_City',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    // El formato en-CA da YYYY-MM-DD
+    return fechaLocalStr;
   };
 
   // Función para agrupar órdenes por mesa en intervalos de 15 minutos
