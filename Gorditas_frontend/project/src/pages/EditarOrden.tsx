@@ -635,10 +635,23 @@ const EditarOrden: React.FC = () => {
         }
 
         setSuccess('Platillo agregado exitosamente');
-        await loadOrdenDetails(selectedOrden);
+        // Refrescar solo el resumen de la orden expandida, sin hacer scroll
+        await loadOrdenDetails(selectedOrden, false);
+        // Actualizar el estado ordenesDetalles para el resumen móvil (usar siempre el ID de la orden)
+        if (selectedOrden && selectedOrden._id) {
+          const detallesResponse = await apiService.getOrdenDetails(selectedOrden._id);
+          if (detallesResponse.success) {
+            setOrdenesDetalles(prev => ({
+              ...prev,
+              [selectedOrden._id]: {
+                platillos: detallesResponse.data.platillos || [],
+                productos: detallesResponse.data.productos || []
+              }
+            }));
+          }
+        }
         await loadData(); // Refrescar la lista de órdenes para mostrar el nuevo estatus
         setModalNotasOpen(false);
-        
         // Limpiar el estado de construcción
         setPlatilloEnConstruccion({
           platillo: null,
@@ -647,7 +660,6 @@ const EditarOrden: React.FC = () => {
           extras: [],
           notas: ''
         });
-        
         setTimeout(() => setSuccess(''), 3000);
       } else {
         setError('Error agregando platillo');
@@ -722,7 +734,21 @@ const EditarOrden: React.FC = () => {
         // El estatus solo cambia cuando se agregan platillos
 
         setSuccess('Producto agregado exitosamente');
-        await loadOrdenDetails(selectedOrden);
+        // Refrescar solo el resumen de la orden expandida, sin hacer scroll
+        await loadOrdenDetails(selectedOrden, false);
+        // Actualizar el estado ordenesDetalles para el resumen móvil (usar siempre el ID de la orden)
+        if (selectedOrden && selectedOrden._id) {
+          const detallesResponse = await apiService.getOrdenDetails(selectedOrden._id);
+          if (detallesResponse.success) {
+            setOrdenesDetalles(prev => ({
+              ...prev,
+              [selectedOrden._id]: {
+                platillos: detallesResponse.data.platillos || [],
+                productos: detallesResponse.data.productos || []
+              }
+            }));
+          }
+        }
         await loadData(); // Refrescar la lista de órdenes
         setModalProductoOpen(false);
         setModalVariantesOpen(false);

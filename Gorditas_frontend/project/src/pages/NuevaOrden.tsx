@@ -1475,12 +1475,12 @@ const NuevaOrden: React.FC = () => {
                   </div>
 
                   {/* Total general */}
-                  {ordenesEnProceso.length > 0 && (
+                  {(ordenesEnProceso.length > 0 || platillosSeleccionados.length > 0 || productosSeleccionados.length > 0) && (
                     <div className="p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
                       <div className="space-y-2">
                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
                           <span className="text-sm sm:text-base lg:text-lg font-semibold text-blue-900">
-                            Total General ({ordenesEnProceso.length + 1} orden{ordenesEnProceso.length + 1 > 1 ? 'es' : ''}):
+                            Total General ({ordenesEnProceso.length + (platillosSeleccionados.length > 0 || productosSeleccionados.length > 0 ? 1 : 0)} orden{ordenesEnProceso.length + (platillosSeleccionados.length > 0 || productosSeleccionados.length > 0 ? 1 : 0) > 1 ? 'es' : ''}):
                           </span>
                           <span className="text-base sm:text-lg lg:text-xl font-bold text-blue-600">
                             ${getTotalTodasLasOrdenes().toFixed(2)}
